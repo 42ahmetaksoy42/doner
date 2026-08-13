@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobil Restoran POS & Rapor</title>
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --accent: #e67e22;
+            --bg: #f4f6f7;
+            --card-bg: #ffffff;
+            --preparing: #f39c12;
+            --ready: #2ecc71;
+            --delivered: #3498db;
+            --danger: #e74c3c;
+            --nav-height: 60px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: #333;
+            padding-bottom: calc(var(--nav-height) + 15px);
+        }
+
+        /* Mobil Header */
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 12px 15px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .stats-badge {
+            background: rgba(255,255,255,0.15);
+            padding: 4px 8px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #2ecc71;
+        }
+
+        /* Ana İçerik ve Sekme Görünürlüğü */
+        .container {
+            padding: 12px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .panel {
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+            margin-bottom: 15px;
+        }
+
+        .panel h2 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: var(--primary);
+            border-bottom: 2px solid var(--bg);
+            padding-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Mobil Menü Izgarası */
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            max-height: 250px;
+            overflow-y: auto;
+            margin-bottom: 12px;
+        }
+
+        .menu-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 10px 8px;
+            text-align: center;
+            background: #fafafa;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .menu-item:active:not(.out-of-stock) {
+            transform: scale(0.97);
+            background: #fff8f0;
+        }
+
+        .menu-item.out-of-stock {
+            background: #f2f2f2;
+            opacity: 0.5;
+            border-color: #ddd;
+        }
+
+        .menu-item-name { font-size: 0.85rem; font-weight: bold; }
+        .menu-item-price { font-size: 0.8rem; color: #27ae60; font-weight: bold; margin-top: 2px; }
+
+        .stock-badge {
+            font-size: 0.65rem;
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-top: 4px;
+            background: #e0e0e0;
+        }
+        .stock-badge.low { background: #ffeaa7; color: #d63031; }
+        .stock-badge.empty { background: #ff7675; color: white; }
+
+        /* Sepet Alanı */
+        .selected-items {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .selected-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px dashed #ddd;
+        }
+
+        .qty-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .qty-btn {
+            background: #e2e8f0;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 0.8rem; margin-bottom: 4px; font-weight: bold; }
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .total-display {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #27ae60;
+            text-align: right;
+            margin-bottom: 12px;
+        }
+
+        /* Dokunmatik Butonlar */
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .btn:active { opacity: 0.9; }
+        .btn-secondary { background-color: #7f8c8d; }
+        .btn-danger { background-color: var(--danger); }
+        .btn-cancel { background-color: #95a5a6; }
+        .btn-edit-mode { background-color: #2980b9; }
+
+        /* Mobil Kanban / Sipariş Listesi */
+        .order-card {
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border-left: 5px solid #ccc;
+        }
+
+        .status-prep { border-left-color: var(--preparing); }
+        .status-ready { border-left-color: var(--ready); }
+        .status-delivered { border-left-color: var(--delivered); }
+
+        .card-header { display: flex; justify-content: space-between; font-weight: bold; font-size: 0.95rem; margin-bottom: 6px; }
+        .card-items { font-size: 0.85rem; color: #333; margin-bottom: 8px; white-space: pre-line; background: #f9f9f9; padding: 6px; border-radius: 4px; }
+        .card-price { font-size: 1rem; font-weight: bold; color: #27ae60; margin-bottom: 8px; text-align: right; }
+        .card-note { font-size: 0.75rem; font-style: italic; color: #666; margin-bottom: 8px; }
+        .card-time { font-size: 0.7rem; color: #888; margin-bottom: 8px; }
+        
+        .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .action-btn { flex: 1; min-width: 70px; padding: 8px 4px; border: none; border-radius: 6px; font-size: 0.75rem; color: white; font-weight: bold; }
+        .btn-next { background-color: var(--ready); }
+        .btn-done { background-color: var(--delivered); }
+        .btn-pay { background-color: #27ae60; }
+        .btn-delete { background-color: var(--danger); }
+        .btn-card-edit { background-color: #2980b9; }
+
+        /* Mobil Rapor Izgarası */
+        .report-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .report-card {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .report-card span { font-size: 0.75rem; color: #666; }
+        .report-card h3 { font-size: 1rem; color: var(--primary); margin-top: 4px; }
+
+        /* Tablo Mobil Uyum */
+        .admin-table-wrapper {
+            overflow-x: auto;
+            max-height: 200px;
+            margin-top: 8px;
+        }
+
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        .admin-table th, .admin-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .admin-table th { background: #f2f2f2; }
+
+        /* Alt Navigasyon (Tab Bar) */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: var(--nav-height);
+            background: white;
+            border-top: 1px solid #ddd;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .nav-item {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #7f8c8d;
+            font-size: 0.7rem;
+            text-decoration: none;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .nav-item.active {
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        .nav-icon {
+            font-size: 1.2rem;
+            margin-bottom: 2px;
+        }
+
+        .badge-count {
+            position: absolute;
+            top: 6px;
+            right: 20%;
+            background: var(--danger);
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 0.65rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Üst Bar -->
+    <header>
+        <h1>Restoran POS</h1>
+        <div class="stats-badge" id="totalRevenue">0,00 TL</div>
+    </header>
+
+    <div class="container">
+
+        <!-- TAB 1: SİPARİŞ AL / DÜZENLE -->
+        <div id="tab-pos" class="tab-content active">
+            <div class="panel">
+                <h2 id="orderFormTitle">Sipariş Oluştur</h2>
+                <input type="hidden" id="editingOrderId">
+
+                <div class="form-group">
+                    <label for="tableNo">Masa Numarası</label>
+                    <input type="number" id="tableNo" min="1" placeholder="Masa No (Örn: 4)" inputmode="numeric">
+                </div>
+
+                <label style="font-size: 0.8rem; font-weight: bold;">Menü (Dokunup Ekleyin)</label>
+                <div class="menu-grid" id="menuGrid"></div>
+
+                <label style="font-size: 0.8rem; font-weight: bold;">Adisyon Detayı</label>
+                <div class="selected-items" id="selectedList">
+                    <div style="color: #999; font-size: 0.8rem; text-align: center;">Henüz ürün seçilmedi.</div>
+                </div>
+
+                <div class="total-display">
+                    Toplam: <span id="currentTotal">0.00</span> TL
+                </div>
+
+                <div class="form-group">
+                    <input type="text" id="note" placeholder="Not (Örn: Acısız olsun)">
+                </div>
+
+                <div style="display: flex; gap: 6px;">
+                    <button class="btn" id="submitOrderBtn" onclick="submitOrder()">Siparişi Mutfak/Servise Gönder</button>
+                    <button class="btn btn-cancel" id="cancelOrderEditBtn" onclick="cancelOrderEdit()" style="display:none; width: 30%;">İptal</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: MUTFAK / SERVİS AKIŞI -->
+        <div id="tab-orders" class="tab-content">
+            <div class="panel">
+                <h2>Aktif Sipariş Takibi (<span id="activeCount">0</span>)</h2>
+                <div id="activeOrdersList"></div>
+            </div>
+        </div>
+
+        <!-- TAB 3: MENÜ & STOK YÖNETİMİ -->
+        <div id="tab-menu" class="tab-content">
+            <div class="panel">
+                <h2 id="formTitle">Ürün / Stok Yönetimi</h2>
+                <form id="productForm">
+                    <input type="hidden" id="editProductId">
+                    <div class="form-group">
+                        <label for="prodName">Ürün Adı</label>
+                        <input type="text" id="prodName" placeholder="Örn: Kola" required>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <div class="form-group" style="flex:1;">
+                            <label for="prodPrice">Fiyat (TL)</label>
+                            <input type="number" id="prodPrice" step="0.5" placeholder="45" required inputmode="decimal">
+                        </div>
+                        <div class="form-group" style="flex:1;">
+                            <label for="prodStock">Stok</label>
+                            <input type="number" id="prodStock" placeholder="50" required inputmode="numeric">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button type="submit" class="btn btn-secondary" id="saveProdBtn">Kaydet</button>
+                        <button type="button" class="btn btn-cancel" id="cancelEditBtn" onclick="resetProductForm()" style="display:none;">İptal</button>
+                    </div>
+                </form>
+
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Ürün</th>
+                                <th>Fiyat</th>
+                                <th>Stok</th>
+                                <th>İşlem</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminProductTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 4: GÜNLÜK RAPOR -->
+        <div id="tab-report" class="tab-content">
+            <div class="panel">
+                <h2>
+                    <span>Gün Sonu Raporu</span>
+                    <button class="action-btn btn-delete" onclick="resetDailyReport()" style="padding: 4px 8px;">Günü Kapat</button>
+                </h2>
+
+                <div class="report-summary-grid">
+                    <div class="report-card">
+                        <span>Toplam Ciro</span>
+                        <h3 id="repTotalRev">0.00 TL</h3>
+                    </div>
+                    <div class="report-card">
+                        <span>Adisyon Adedi</span>
+                        <h3 id="repOrderCount">0</h3>
+                    </div>
+                    <div class="report-card">
+                        <span>Nakit</span>
+                        <h3 id="repCashRev">0.00 TL</h3>
+                    </div>
+                    <div class="report-card">
+                        <span>Kredi Kartı</span>
+                        <h3 id="repCardRev">0.00 TL</h3>
+                    </div>
+                </div>
+
+                <h3 style="font-size: 0.85rem; margin: 10px 0 5px 0;">Satılan Ürünler</h3>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Ürün</th>
+                                <th>Adet</th>
+                                <th>Tutar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemReportTable"></tbody>
+                    </table>
+                </div>
+
+                <h3 style="font-size: 0.85rem; margin: 15px 0 5px 0;">Kapatılan Adisyonlar</h3>
+                <div class="admin-table-wrapper">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Masa</th>
+                                <th>Tutar</th>
+                                <th>Tür</th>
+                                <th>Saat</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyReportTable"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Mobil Alt Navigasyon (Tab Bar) -->
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('pos', this)">
+            <span class="nav-icon">📝</span>
+            <span>Sipariş Al</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('orders', this)">
+            <span class="nav-icon">👨‍🍳</span>
+            <span>Mutfak/Servis</span>
+            <span class="badge-count" id="navOrderBadge" style="display:none;">0</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('menu', this)">
+            <span class="nav-icon">📦</span>
+            <span>Stok/Menü</span>
+        </div>
+        <div class="nav-item" onclick="switchTab('report', this)">
+            <span class="nav-icon">📊</span>
+            <span>Rapor</span>
+        </div>
+    </nav>
+
+    <script>
+        const defaultProducts = [
+            { id: 1, name: "Adana Kebap", price: 280, stock: 30 },
+            { id: 2, name: "İskender", price: 320, stock: 20 },
+            { id: 3, name: "Lahmacun", price: 90, stock: 100 },
+            { id: 4, name: "Ayran", price: 30, stock: 50 },
+            { id: 5, name: "Kola", price: 45, stock: 40 },
+            { id: 6, name: "Su", price: 15, stock: 100 }
+        ];
+
+        let products = JSON.parse(localStorage.getItem('restaurant_menu_m1')) || defaultProducts;
+        let orders = JSON.parse(localStorage.getItem('restaurant_orders_m1')) || [];
+        let salesHistory = JSON.parse(localStorage.getItem('restaurant_sales_m1')) || [];
+
+        let currentCart = {};
+
+        // Sekme Değiştirme
+        function switchTab(tabId, element) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+            
+            document.getElementById(`tab-${tabId}`).classList.add('active');
+            element.classList.add('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function saveData() {
+            localStorage.setItem('restaurant_menu_m1', JSON.stringify(products));
+            localStorage.setItem('restaurant_orders_m1', JSON.stringify(orders));
+            localStorage.setItem('restaurant_sales_m1', JSON.stringify(salesHistory));
+            renderMenu();
+            renderAdminTable();
+            renderOrders();
+            renderReport();
+        }
+
+        // 1. Menü ve Sepet İşlemleri
+        function renderMenu() {
+            const menuGrid = document.getElementById('menuGrid');
+            menuGrid.innerHTML = '';
+            products.forEach(p => {
+                const item = document.createElement('div');
+                const isOutOfStock = p.stock <= 0;
+                item.className = `menu-item ${isOutOfStock ? 'out-of-stock' : ''}`;
+                
+                if(!isOutOfStock) {
+                    item.onclick = () => addToCart(p.id);
+                }
+
+                let stockClass = '';
+                if(p.stock === 0) stockClass = 'empty';
+                else if(p.stock <= 5) stockClass = 'low';
+
+                item.innerHTML = `
+                    <div class="menu-item-name">${p.name}</div>
+                    <div class="menu-item-price">${p.price.toFixed(2)} TL</div>
+                    <span class="stock-badge ${stockClass}">
+                        ${p.stock > 0 ? 'Stok: ' + p.stock : 'TÜKENDİ'}
+                    </span>
+                `;
+                menuGrid.appendChild(item);
+            });
+        }
+
+        function addToCart(id) {
+            const p = products.find(prod => prod.id === id);
+            const inCartQty = currentCart[id] || 0;
+
+            if (p && inCartQty < p.stock) {
+                currentCart[id] = inCartQty + 1;
+                updateCartDisplay();
+            } else {
+                alert(`Üzgünüz, ${p.name} için stok yetersiz!`);
+            }
+        }
+
+        function removeFromCart(id) {
+            if (currentCart[id]) {
+                currentCart[id]--;
+                if (currentCart[id] <= 0) delete currentCart[id];
+            }
+            updateCartDisplay();
+        }
+
+        function updateCartDisplay() {
+            const selectedList = document.getElementById('selectedList');
+            const currentTotalEl = document.getElementById('currentTotal');
+            selectedList.innerHTML = '';
+            let total = 0;
+            const keys = Object.keys(currentCart);
+
+            if (keys.length === 0) {
+                selectedList.innerHTML = '<div style="color: #999; font-size: 0.8rem; text-align: center;">Henüz ürün seçilmedi.</div>';
+                currentTotalEl.textContent = '0.00';
+                return;
+            }
+
+            keys.forEach(id => {
+                const p = products.find(prod => prod.id == id);
+                if (p) {
+                    const itemTotal = p.price * currentCart[id];
+                    total += itemTotal;
+
+                    const row = document.createElement('div');
+                    row.className = 'selected-row';
+                    row.innerHTML = `
+                        <span>${p.name} (${p.price} TL)</span>
+                        <div class="qty-controls">
+                            <button class="qty-btn" onclick="removeFromCart(${p.id})">-</button>
+                            <span style="font-weight:bold;">${currentCart[id]}</span>
+                            <button class="qty-btn" onclick="addToCart(${p.id})">+</button>
+                        </div>
+                    `;
+                    selectedList.appendChild(row);
+                }
+            });
+
+            currentTotalEl.textContent = total.toFixed(2);
+        }
+
+        // Sipariş Ekle / Güncelle
+        function submitOrder() {
+            const editingId = document.getElementById('editingOrderId').value;
+            const tableNo = document.getElementById('tableNo').value;
+            const note = document.getElementById('note').value;
+            const keys = Object.keys(currentCart);
+
+            if (!tableNo) { alert('Lütfen Masa Numarası giriniz!'); return; }
+            if (keys.length === 0) { alert('Lütfen ürün seçiniz!'); return; }
+
+            if (editingId) {
+                const orderIndex = orders.findIndex(o => o.id == editingId);
+                if (orderIndex !== -1) {
+                    const oldOrder = orders[orderIndex];
+
+                    oldOrder.itemsDetail.forEach(oldItem => {
+                        const prod = products.find(p => p.name === oldItem.name);
+                        if (prod) prod.stock += oldItem.qty;
+                    });
+
+                    let itemsSummary = [], itemsDetail = [], totalPrice = 0;
+                    keys.forEach(id => {
+                        const p = products.find(prod => prod.id == id);
+                        if (p) {
+                            const qty = currentCart[id];
+                            p.stock -= qty;
+                            itemsSummary.push(`${qty}x ${p.name}`);
+                            itemsDetail.push({ name: p.name, qty: qty, unitPrice: p.price });
+                            totalPrice += p.price * qty;
+                        }
+                    });
+
+                    orders[orderIndex] = {
+                        ...oldOrder,
+                        tableNo: tableNo,
+                        items: itemsSummary.join('\n'),
+                        itemsDetail: itemsDetail,
+                        price: totalPrice,
+                        note: note
+                    };
+                }
+            } else {
+                let itemsSummary = [], itemsDetail = [], totalPrice = 0;
+                keys.forEach(id => {
+                    const p = products.find(prod => prod.id == id);
+                    if (p) {
+                        const qty = currentCart[id];
+                        p.stock -= qty;
+                        itemsSummary.push(`${qty}x ${p.name}`);
+                        itemsDetail.push({ name: p.name, qty: qty, unitPrice: p.price });
+                        totalPrice += p.price * qty;
+                    }
+                });
+
+                orders.push({
+                    id: Date.now(),
+                    tableNo,
+                    items: itemsSummary.join('\n'),
+                    itemsDetail: itemsDetail,
+                    price: totalPrice,
+                    note,
+                    status: 'preparing',
+                    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+            }
+
+            cancelOrderEdit();
+            saveData();
+            alert("Sipariş kaydedildi!");
+        }
+
+        function editOrder(id) {
+            const order = orders.find(o => o.id === id);
+            if (!order) return;
+
+            document.getElementById('editingOrderId').value = order.id;
+            document.getElementById('tableNo').value = order.tableNo;
+            document.getElementById('note').value = order.note || '';
+
+            document.getElementById('orderFormTitle').textContent = `Masa ${order.tableNo} - Düzenle`;
+            document.getElementById('submitOrderBtn').textContent = "Siparişi Güncelle";
+            document.getElementById('submitOrderBtn').className = "btn btn-edit-mode";
+            document.getElementById('cancelOrderEditBtn').style.display = "inline-block";
+
+            currentCart = {};
+            order.itemsDetail.forEach(item => {
+                const prod = products.find(p => p.name === item.name);
+                if (prod) currentCart[prod.id] = item.qty;
+            });
+
+            updateCartDisplay();
+            switchTab('pos', document.querySelectorAll('.nav-item')[0]);
+        }
+
+        function cancelOrderEdit() {
+            document.getElementById('editingOrderId').value = '';
+            document.getElementById('tableNo').value = '';
+            document.getElementById('note').value = '';
+            document.getElementById('orderFormTitle').textContent = "Sipariş Oluştur";
+            document.getElementById('submitOrderBtn').textContent = "Siparişi Gönder";
+            document.getElementById('submitOrderBtn').className = "btn";
+            document.getElementById('cancelOrderEditBtn').style.display = "none";
+
+            currentCart = {};
+            updateCartDisplay();
+        }
+
+        // 2. Ürün / Stok Yönetimi
+        document.getElementById('productForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editProductId').value;
+            const name = document.getElementById('prodName').value;
+            const price = parseFloat(document.getElementById('prodPrice').value);
+            const stock = parseInt(document.getElementById('prodStock').value);
+
+            if (editId) {
+                products = products.map(p => p.id == editId ? { ...p, name, price, stock } : p);
+            } else {
+                products.push({ id: Date.now(), name, price, stock });
+            }
+
+            resetProductForm();
+            saveData();
+        });
+
+        function editProduct(id) {
+            const p = products.find(prod => prod.id === id);
+            if (p) {
+                document.getElementById('editProductId').value = p.id;
+                document.getElementById('prodName').value = p.name;
+                document.getElementById('prodPrice').value = p.price;
+                document.getElementById('prodStock').value = p.stock;
+
+                document.getElementById('formTitle').textContent = "Ürün Düzenle";
+                document.getElementById('saveProdBtn').textContent = "Güncelle";
+                document.getElementById('cancelEditBtn').style.display = "inline-block";
+            }
+        }
+
+        function deleteProduct(id) {
+            if (confirm("Bu ürünü silmek istediğinize emin misiniz?")) {
+                products = products.filter(p => p.id !== id);
+                delete currentCart[id];
+                updateCartDisplay();
+                saveData();
+            }
+        }
+
+        function resetProductForm() {
+            document.getElementById('editProductId').value = '';
+            document.getElementById('prodName').value = '';
+            document.getElementById('prodPrice').value = '';
+            document.getElementById('prodStock').value = '';
+            document.getElementById('formTitle').textContent = "Ürün / Stok Yönetimi";
+            document.getElementById('saveProdBtn').textContent = "Kaydet";
+            document.getElementById('cancelEditBtn').style.display = "none";
+        }
+
+        function renderAdminTable() {
+            const adminProductTable = document.getElementById('adminProductTable');
+            adminProductTable.innerHTML = '';
+            products.forEach(p => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${p.name}</strong></td>
+                    <td>${p.price.toFixed(2)} TL</td>
+                    <td>${p.stock} adet</td>
+                    <td>
+                        <button class="action-btn btn-card-edit" onclick="editProduct(${p.id})">Düzenle</button>
+                        <button class="action-btn btn-delete" onclick="deleteProduct(${p.id})">Sil</button>
+                    </td>
+                `;
+                adminProductTable.appendChild(tr);
+            });
+        }
+
+        // 3. Sipariş Durumları & Ödeme
+        function updateStatus(id, newStatus) {
+            orders = orders.map(order => order.id === id ? { ...order, status: newStatus } : order);
+            saveData();
+        }
+
+        function payOrder(id) {
+            const order = orders.find(o => o.id === id);
+            if (order) {
+                const paymentType = prompt("Ödeme Türü:\n1 - Nakit\n2 - Kredi Kartı", "1");
+                let typeText = "Nakit";
+                if (paymentType === "2") typeText = "Kredi Kartı";
+                else if (paymentType === null) return;
+
+                salesHistory.push({
+                    ...order,
+                    paymentType: typeText,
+                    closeTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                });
+
+                orders = orders.filter(o => o.id !== id);
+                saveData();
+            }
+        }
+
+        function deleteOrder(id) {
+            if (confirm("Siparişi iptal etmek istediğinize emin misiniz? Stoklar iade edilir.")) {
+                const order = orders.find(o => o.id === id);
+                if(order && order.itemsDetail) {
+                    order.itemsDetail.forEach(item => {
+                        const prod = products.find(p => p.name === item.name);
+                        if(prod) prod.stock += item.qty;
+                    });
+                }
+                orders = orders.filter(order => order.id !== id);
+                saveData();
+            }
+        }
+
+        function renderOrders() {
+            const activeOrdersList = document.getElementById('activeOrdersList');
+            const activeCount = document.getElementById('activeCount');
+            const navOrderBadge = document.getElementById('navOrderBadge');
+
+            activeOrdersList.innerHTML = '';
+            activeCount.textContent = orders.length;
+
+            if (orders.length > 0) {
+                navOrderBadge.style.display = 'inline-block';
+                navOrderBadge.textContent = orders.length;
+            } else {
+                navOrderBadge.style.display = 'none';
+                activeOrdersList.innerHTML = '<div style="text-align:center; color:#888; padding: 20px;">Aktif sipariş bulunmuyor.</div>';
+                return;
+            }
+
+            orders.forEach(order => {
+                const card = document.createElement('div');
+                let statusClass = 'status-prep';
+                let statusText = 'Mutfakta';
+
+                if(order.status === 'ready') { statusClass = 'status-ready'; statusText = 'Hazır'; }
+                else if(order.status === 'delivered') { statusClass = 'status-delivered'; statusText = 'Masada'; }
+
+                card.className = `order-card ${statusClass}`;
+
+                let actionButtons = `<button class="action-btn btn-card-edit" onclick="editOrder(${order.id})">Düzenle</button>`;
+
+                if (order.status === 'preparing') {
+                    actionButtons += `<button class="action-btn btn-next" onclick="updateStatus(${order.id}, 'ready')">Hazır</button>`;
+                } else if (order.status === 'ready') {
+                    actionButtons += `<button class="action-btn btn-done" onclick="updateStatus(${order.id}, 'delivered')">Masada</button>`;
+                } else if (order.status === 'delivered') {
+                    actionButtons += `<button class="action-btn btn-pay" onclick="payOrder(${order.id})">Hesap Kapat</button>`;
+                }
+                actionButtons += `<button class="action-btn btn-delete" onclick="deleteOrder(${order.id})">Sil</button>`;
+
+                card.innerHTML = `
+                    <div class="card-header">
+                        <span>Masa ${order.tableNo} <small>(${statusText})</small></span>
+                        <span>#${order.id.toString().slice(-4)}</span>
+                    </div>
+                    <div class="card-items">${order.items}</div>
+                    ${order.note ? `<div class="card-note">Not: ${order.note}</div>` : ''}
+                    <div class="card-price">${order.price.toFixed(2)} TL</div>
+                    <div class="card-time">Saat: ${order.time}</div>
+                    <div class="card-actions">${actionButtons}</div>
+                `;
+
+                activeOrdersList.appendChild(card);
+            });
+        }
+
+        // 4. Günlük Rapor Paneli
+        function renderReport() {
+            let totalRev = 0, cashRev = 0, cardRev = 0;
+            let itemStats = {};
+
+            salesHistory.forEach(sale => {
+                totalRev += sale.price;
+                if (sale.paymentType === "Nakit") cashRev += sale.price;
+                else if (sale.paymentType === "Kredi Kartı") cardRev += sale.price;
+
+                if (sale.itemsDetail) {
+                    sale.itemsDetail.forEach(item => {
+                        if (!itemStats[item.name]) {
+                            itemStats[item.name] = { qty: 0, total: 0 };
+                        }
+                        itemStats[item.name].qty += item.qty;
+                        itemStats[item.name].total += item.qty * item.unitPrice;
+                    });
+                }
+            });
+
+            document.getElementById('repTotalRev').textContent = `${totalRev.toFixed(2)} TL`;
+            document.getElementById('totalRevenue').textContent = `${totalRev.toFixed(2)} TL`;
+            document.getElementById('repCashRev').textContent = `${cashRev.toFixed(2)} TL`;
+            document.getElementById('repCardRev').textContent = `${cardRev.toFixed(2)} TL`;
+            document.getElementById('repOrderCount').textContent = salesHistory.length;
+
+            const itemReportTable = document.getElementById('itemReportTable');
+            itemReportTable.innerHTML = '';
+            Object.keys(itemStats).forEach(itemName => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${itemName}</strong></td>
+                    <td>${itemStats[itemName].qty} adet</td>
+                    <td>${itemStats[itemName].total.toFixed(2)} TL</td>
+                `;
+                itemReportTable.appendChild(tr);
+            });
+
+            const historyReportTable = document.getElementById('historyReportTable');
+            historyReportTable.innerHTML = '';
+            salesHistory.slice().reverse().forEach(sale => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>Masa ${sale.tableNo}</td>
+                    <td>${sale.price.toFixed(2)} TL</td>
+                    <td>${sale.paymentType}</td>
+                    <td>${sale.closeTime}</td>
+                `;
+                historyReportTable.appendChild(tr);
+            });
+        }
+
+        function resetDailyReport() {
+            if (confirm("Günü kapatmak ve rapor verilerini sıfırlamak istiyor musunuz?")) {
+                salesHistory = [];
+                saveData();
+                alert("Günü kapatma işlemi tamamlandı.");
+            }
+        }
+
+        // Başlangıç
+        renderMenu();
+        renderAdminTable();
+        renderOrders();
+        renderReport();
+    </script>
+</body>
+</html>
